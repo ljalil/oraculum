@@ -6,7 +6,7 @@ Case Western Reserve University (CWRU) bearings data provides ball bearing test 
 
 The code provides implementations from the following papers:
 
-- [A New Convolutional Neural Network-Based Data-Driven Fault Diagnosis Method](https://ieeexplore.ieee.org/document/8114247)
+- [A New Convolutional Neural Network-Based Data-Driven Fault Diagnosis Method](https://ieeexplore.ieee.org/document/8114247) (wen2018.py)
 	- Data preprocessing
 	- Convolutional neural networks (CNN) for bearings faults classification
 

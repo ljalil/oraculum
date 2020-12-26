@@ -7,6 +7,7 @@ DOI: 10.1109/TIE.2017.2774777
 """
 
 import os
+import argparse
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -17,8 +18,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 
-def prepare_data(data_path, batch_size, test_size):
-
+def prepare_data(args):
     # Each list contains data files for a specific fault type and size, in addition
     # to the normal baseline data
 
@@ -53,7 +53,7 @@ def prepare_data(data_path, batch_size, test_size):
     data_y = np.zeros((0,))
     for bearing_state in enumerate(full_data):
         for load in bearing_state[1]:
-            data = loadmat(os.path.join(data_path, load))
+            data = loadmat(os.path.join(args.data_path, load))
             vibration = data[list(data.keys())[3]]
 
             # Calculate the number of samples that can be extracted from each
@@ -77,14 +77,14 @@ def prepare_data(data_path, batch_size, test_size):
             labels = np.repeat(labels, number_of_samples, axis=0)
             data_y = np.concatenate((data_y, labels), axis=0)
 
-    train_x, test_x, train_y, test_y = train_test_split(data_x, data_y, test_size=test_size, shuffle=True)
+    train_x, test_x, train_y, test_y = train_test_split(data_x, data_y, test_size=args.test_size, shuffle=True)
 
     tensor_train_x = torch.Tensor(train_x)
     tensor_train_y = torch.LongTensor(train_y)
     tensor_test_x = torch.Tensor(test_x)
     tensor_test_y = torch.LongTensor(test_y)
 
-    batch_size = batch_size
+    batch_size = args.batch_size
     loader_train = DataLoader(TensorDataset(tensor_train_x, tensor_train_y), batch_size=batch_size)
     loader_test = DataLoader(TensorDataset(tensor_test_x, tensor_test_y), batch_size=batch_size)
 
@@ -121,7 +121,7 @@ class CaseWesternClassifier(nn.Module):
         output = F.log_softmax(self.fc3(x), dim=1)
         return output
 
-def train(model, dataloader, optimizer, epoch, log_interval):
+def train(model, dataloader, optimizer, epoch, args):
     model.train()
     criterion = nn.NLLLoss()
 
@@ -132,7 +132,7 @@ def train(model, dataloader, optimizer, epoch, log_interval):
         loss.backward()
         optimizer.step()
 
-        if batch_id % log_interval == 0:
+        if batch_id % args.log_interval == 0:
             print('Train epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(epoch, batch_id*len(data), len(dataloader.dataset), 100. * batch_id/len(dataloader), loss.item()))
 
 
@@ -152,29 +152,23 @@ def test(model, dataloader, epoch):
         print('Test Set: Average Loss {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(test_loss, correct, len(dataloader.dataset), 100.* correct/len(dataloader.dataset)))
 
 if __name__ == "__main__":
-    data_path = input("Enter data path: ")
-    epochs = input("Enter training epochs (default=30): ")
-    batch_size = input("Enter batch size (default=64): ")
-    test_size = input("Enter test size (default=0.2): ")
-    log_interval = input("Enter log interval (default=1): ")
 
-    if not epochs: epochs=30
-    else: epochs=int(epochs)
+    parser = argparse.ArgumentParser(description='Paper implementation for "A New Convolutional Neural Network Based Data-Driven Fault Diagnosis Method" by Wen et al.')
+    parser.add_argument('--data-path',metavar='str', type=str, help='Path containing training data')
+    parser.add_argument('--epochs',metavar='int', type=int, default=50, help='Number of training epochs (default: 50)')
+    parser.add_argument('--log-interval',metavar='int', type=int, default=4, help='Number of batches to wait before logging training status (default: 4)')
+    parser.add_argument('--test-size',metavar='float', type=float, default=0.2, help='Fraction of the full dataset to be reserved for testing (default: 0.2)')
+    parser.add_argument('--batch-size', metavar='int', type=int, default=64, help='Input batch size for training (default: 64)')
+    parser.add_argument('--lr', metavar='float',  type=float, default=0.001, help='learning rate (default: 0.001)')
 
-    if not batch_size: batch_size=64
-    else: batch_size=int(batch_size)
+    args = parser.parse_args()
 
-    if not test_size: test_size=0.2
-    else: test_size=float(test_size)
-
-    if not log_interval: log_interval=1
-    else: log_interval=int(log_interval)
 
     clf = CaseWesternClassifier()
-    optimizer = optim.Adam(clf.parameters())
+    optimizer = optim.Adam(clf.parameters(), lr=args.lr)
 
-    loader_train, loader_test = prepare_data(data_path, batch_size, test_size)
+    loader_train, loader_test = prepare_data(args)
 
-    for epoch in range(1,epochs+1):
-        train(clf, loader_train, optimizer, epoch, log_interval)
+    for epoch in range(1,args.epochs+1):
+        train(clf, loader_train, optimizer, epoch, args)
         test(clf, loader_test, epoch)
