@@ -172,3 +172,7 @@ if __name__ == "__main__":
     for epoch in range(1,args.epochs+1):
         train(clf, loader_train, optimizer, epoch, args)
         test(clf, loader_test, epoch)
+
+    answer = input("\n\nSave model? [y/n]: ")
+    if answer == "y":
+        torch.save(clf.state_dict(), "wen2018-pretrained")
